@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RAG System</title>
+  <style>
+    /* General Styles */
+    body {
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f0fdf4; /* Light green background */
+      color: #0f172a; /* Dark text */
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      width: 85%;
+      max-width: 1100px;
+      margin: 40px auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 30px;
+      color: #064e3b; /* Dark green heading */
+    }
+
+    .section {
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      margin-bottom: 25px;
+      border-left: 6px solid #16a34a; /* Light green accent */
+    }
+
+    h2 {
+      font-size: 1.3rem;
+      margin-bottom: 15px;
+      color: #064e3b; /* Dark green text */
+    }
+
+    textarea, input[type=text] {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #f0fdf4; /* light green background for inputs */
+      color: #064e3b; /* dark text */
+    }
+
+    textarea::placeholder,
+    input::placeholder {
+      color: #065f46; /* subtle green placeholder */
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 20px;
+      background: #16a34a; /* medium green button */
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #065f46; /* dark green hover */
+    }
+
+    .chat-box {
+      height: 350px;
+      overflow-y: auto;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      background: #f0fdf4;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      max-width: 80%;
+      clear: both;
+      word-wrap: break-word;
+    }
+
+    .user {
+      background: #16a34a;
+      color: white;
+      float: right;
+    }
+
+    .bot {
+      background: #d9fdd3;
+      color: #064e3b;
+      float: left;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-weight: 500;
+      color: #065f46;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        width: 95%;
+      }
+      .message { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>RAG System Interface</h1>
+
+    <!-- Corpus Section -->
+    <div class="section">
+      <h2>Corpus</h2>
+      <form id="corpus-form">
+        <textarea id="corpus-text" rows="6" placeholder="Paste or type your corpus here..."></textarea>
+        <button type="submit">Create Index</button>
+      </form>
+      <p id="corpus-status" class="status"></p>
+    </div>
+
+    <!-- Prompt Section -->
+    <div class="section">
+      <h2>Prompt Tuning</h2>
+      <form id="prompt-form">
+        <textarea id="prompt-text" rows="4" placeholder="Enter a custom instruction for the model..."></textarea>
+        <button type="submit">Set Prompt</button>
+      </form>
+      <p id="prompt-status" class="status"></p>
+    </div>
+
+    <!-- Chat Section -->
+    <div class="section">
+      <h2>Chat</h2>
+      <div id="chat-box" class="chat-box"></div>
+      <form id="chat-form">
+        <input type="text" id="query" placeholder="Ask something..." required>
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Prefill corpus
+    async function loadCorpus() {
+      const res = await fetch("/get_corpus");
+      const data = await res.json();
+      document.getElementById("corpus-text").value = data.corpus || "";
+    }
+    loadCorpus();
+
+    // Corpus form submit
+    document.getElementById("corpus-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = document.getElementById("corpus-text").value.trim();
+      if (!text) return alert("Please enter some corpus text");
+
+      const formData = new FormData();
+      formData.append("corpus", text);
+
+      const res = await fetch("/create_index", { method: "POST", body: formData });
+      const data = await res.json();
+      document.getElementById("corpus-status").textContent = data.message;
+    });
+
+    // Prefill prompt
+    async function loadPrompt() {
+      const res = await fetch("/get_prompt");
+      const data = await res.json();
+      document.getElementById("prompt-text").value = data.prompt || "";
+    }
+    loadPrompt();
+
+    // Prompt form submit
+    document.getElementById("prompt-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = document.getElementById("prompt-text").value.trim();
+      if (!text) return alert("Please enter a prompt");
+
+      const formData = new FormData();
+      formData.append("prompt", text);
+
+      const res = await fetch("/set_prompt", { method: "POST", body: formData });
+      const data = await res.json();
+      document.getElementById("prompt-status").textContent = data.message;
+    });
+
+    // Chat form
+    document.getElementById("chat-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const query = document.getElementById("query").value.trim();
+      if (!query) return;
+
+      const chatBox = document.getElementById("chat-box");
+      chatBox.innerHTML += `<div class="message user"><b>You:</b> ${query}</div>`;
+      document.getElementById("query").value = "";
+
+      const formData = new FormData();
+      formData.append("query", query);
+
+      const res = await fetch("/chat", { method: "POST", body: formData });
+      const data = await res.json();
+
+      chatBox.innerHTML += `<div class="message bot"><b>Bot:</b> ${data.answer}</div>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  </script>
+</body>
+</html>
